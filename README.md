@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Blog Huy
 
 Personal blog với React, TypeScript, Tailwind CSS và MongoDB.
@@ -62,3 +63,7 @@ VITE_API_BASE_URL=http://localhost:3001/api
 - ✅ Firebase Authentication (cho admin login)
 - ✅ Responsive design
 - ✅ Bilingual support (English/Vietnamese)
+=======
+# huyblog.github.io
+Blog where I share everything about myself
+>>>>>>> 348ae20693c365bad16f3b4fc711561b4053c842
