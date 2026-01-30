@@ -3,6 +3,14 @@
 set -e
 cd "$(dirname "$0")"
 
+# Dùng Node 20 khi chạy qua webhook (môi trường không load .bashrc, không có nvm)
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+  . "$NVM_DIR/nvm.sh"
+  nvm use 20 2>/dev/null || nvm use default 2>/dev/null || true
+fi
+echo "[deploy] Node: $(node -v) | npm: $(npm -v)"
+
 echo "[deploy] Pulling from GitHub..."
 git pull origin main
 
