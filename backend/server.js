@@ -22,7 +22,14 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 // Middleware – webhook needs raw body for signature verification, so register before json()
 app.use(cors());
 
-// GitHub deploy webhook: when WEBHOOK_SECRET is set, POST /api/deploy-webhook runs deploy.sh
+// GitHub deploy webhook: only POST is accepted (GitHub sends POST). GET returns a short info message.
+app.get('/api/deploy-webhook', (req, res) => {
+  res.status(200).json({
+    message: 'Deploy webhook endpoint. GitHub sends POST on push; this URL does not support GET.',
+    usage: 'Configure this URL as Webhook URL in GitHub repo Settings → Webhooks. Method: POST.',
+  });
+});
+
 app.post('/api/deploy-webhook', express.raw({ type: 'application/json' }), (req, res) => {
   if (!WEBHOOK_SECRET) {
     return res.status(503).json({ error: 'Webhook not configured (WEBHOOK_SECRET missing)' });
