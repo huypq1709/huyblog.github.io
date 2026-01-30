@@ -1,7 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import crypto from 'crypto';
+import { exec } from 'child_process';
+import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Load environment variables
 dotenv.config();
@@ -10,9 +16,57 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 const DB_NAME = process.env.DB_NAME || 'blog_huy';
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 
-// Middleware
+// Middleware – webhook needs raw body for signature verification, so register before json()
 app.use(cors());
+
+// GitHub deploy webhook: when WEBHOOK_SECRET is set, POST /api/deploy-webhook runs deploy.sh
+app.post('/api/deploy-webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  if (!WEBHOOK_SECRET) {
+    return res.status(503).json({ error: 'Webhook not configured (WEBHOOK_SECRET missing)' });
+  }
+  const sig = req.headers['x-hub-signature-256'];
+  if (!sig) {
+    return res.status(401).json({ error: 'Missing X-Hub-Signature-256' });
+  }
+  const raw = req.body;
+  if (!raw || !(raw instanceof Buffer)) {
+    return res.status(400).json({ error: 'Invalid body' });
+  }
+  const expected = 'sha256=' + crypto.createHmac('sha256', WEBHOOK_SECRET).update(raw).digest('hex');
+  if (sig !== expected) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+  let payload;
+  try {
+    payload = JSON.parse(raw.toString('utf8'));
+  } catch {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+  if (req.headers['x-github-event'] === 'ping') {
+    return res.json({ ok: true, message: 'pong' });
+  }
+  if (req.headers['x-github-event'] !== 'push') {
+    return res.json({ ok: true, ignored: true });
+  }
+  const ref = payload.ref || '';
+  if (ref !== 'refs/heads/main') {
+    return res.json({ ok: true, ignored: true, reason: 'not main branch' });
+  }
+  const projectRoot = path.join(__dirname, '..');
+  const deployScript = path.join(projectRoot, 'deploy.sh');
+  exec(`bash deploy.sh`, { cwd: projectRoot }, (err, stdout, stderr) => {
+    if (err) {
+      console.error('Deploy failed:', err);
+      console.error(stderr);
+      return res.status(500).json({ error: 'Deploy failed', stderr: stderr || err.message });
+    }
+    console.log('Deploy completed:', stdout);
+    res.json({ ok: true, message: 'Deploy started', stdout: stdout || undefined });
+  });
+});
+
 app.use(express.json());
 
 // MongoDB connection

@@ -1,5 +1,152 @@
 # Hướng dẫn chạy Blog trên VPS
 
+## Cập nhật code mới từ GitHub (sau khi push)
+
+Chạy **trên server (VPS)** để kéo code mới và build lại:
+
+```bash
+# Vào thư mục project (đường dẫn có thể là /opt/blog-huy hoặc nơi bạn clone)
+cd /opt/blog-huy
+
+# Kéo code mới từ GitHub
+git pull origin main
+
+# Cài lại dependencies nếu có thay đổi package.json (tùy chọn)
+# npm install
+# cd backend && npm install && cd ..
+
+# Build lại frontend (bắt buộc sau khi pull)
+npm run build
+
+# Restart frontend để dùng bản build mới
+pm2 restart blog-frontend
+
+# Nếu có sửa backend, restart backend
+# pm2 restart blog-backend
+```
+
+Sau đó truy cập lại trang web (có thể cần Ctrl+F5 hoặc xóa cache trình duyệt để thấy thay đổi).
+
+---
+
+## Hướng dẫn cài deploy.sh lên server
+
+`deploy.sh` nằm trong repo (thư mục gốc project). Để dùng trên server:
+
+### Bước 1: Có file deploy.sh trên server
+
+**Cách A – Đã clone repo rồi:** kéo code mới để có `deploy.sh`:
+
+```bash
+cd /opt/blog-huy
+git pull origin main
+```
+
+Sau khi pull, kiểm tra:
+
+```bash
+ls -l deploy.sh
+```
+
+Nếu thấy file `deploy.sh` là đã có.
+
+**Cách B – Chưa có deploy.sh (repo cũ):** đảm bảo repo trên GitHub đã có file `deploy.sh` (đã push từ máy local), rồi trên server chạy:
+
+```bash
+cd /opt/blog-huy
+git pull origin main
+```
+
+### Bước 2: Cho phép thực thi
+
+```bash
+cd /opt/blog-huy
+chmod +x deploy.sh
+```
+
+Kiểm tra lại:
+
+```bash
+ls -l deploy.sh
+```
+
+Dòng hiển thị phải có chữ `x` (ví dụ: `-rwxr-xr-x`).
+
+### Bước 3: Chạy thử (cập nhật thủ công)
+
+```bash
+cd /opt/blog-huy
+bash deploy.sh
+```
+
+Script sẽ: `git pull` → `npm install` → `npm run build` → `pm2 restart blog-frontend` và `blog-backend`. Nếu chạy không lỗi là đã cài đúng.
+
+### Bước 4 (tùy chọn): Tự chạy khi push – cấu hình GitHub Webhook
+
+Nếu muốn mỗi lần push lên GitHub thì server tự chạy `deploy.sh`, làm tiếp theo mục **"Tự động cập nhật khi push (GitHub Webhook)"** bên dưới.
+
+---
+
+## Tự động cập nhật khi push (GitHub Webhook)
+
+Mỗi khi bạn `git push` lên GitHub, server có thể tự chạy `git pull`, build lại frontend và restart PM2. Cách làm:
+
+### 1. Trên server: cấu hình webhook secret và cho phép chạy deploy.sh
+
+**Backend `.env`** (ví dụ `/opt/blog-huy/backend/.env`):
+
+```env
+PORT=3001
+MONGODB_URI=mongodb://localhost:27017
+DB_NAME=blog_huy
+NODE_ENV=production
+
+# Bí mật để GitHub gửi webhook (tự đặt chuỗi bất kỳ, ví dụ dùng: openssl rand -hex 32)
+WEBHOOK_SECRET=your-secret-here-at-least-32-chars
+```
+
+Tạo secret an toàn (chạy trên server hoặc máy local):
+
+```bash
+openssl rand -hex 32
+```
+
+Copy kết quả vào `WEBHOOK_SECRET` trong `.env`, sau đó restart backend:
+
+```bash
+pm2 restart blog-backend
+```
+
+**Cho phép chạy script deploy:**
+
+```bash
+cd /opt/blog-huy
+chmod +x deploy.sh
+```
+
+### 2. Trên GitHub: thêm Webhook
+
+1. Vào repo **GitHub** → **Settings** → **Webhooks** → **Add webhook**.
+2. **Payload URL:**  
+   `http://IP-VPS-CỦA-BẠN:3001/api/deploy-webhook`  
+   (Nếu có domain trỏ tới VPS: `https://api.ten-domain.com/api/deploy-webhook`.)
+3. **Content type:** `application/json`.
+4. **Secret:** dán đúng chuỗi đã đặt trong `WEBHOOK_SECRET` (backend `.env`).
+5. **Which events:** chọn **Just the push event**.
+6. Bấm **Add webhook**.
+
+GitHub sẽ gửi một request "ping"; nếu cấu hình đúng bạn sẽ thấy dấu tick xanh.
+
+### 3. Cách hoạt động
+
+- Khi bạn **push** lên nhánh **main**, GitHub gửi POST tới `/api/deploy-webhook`.
+- Backend kiểm tra chữ ký (secret), nếu đúng thì chạy `deploy.sh` trong thư mục gốc project.
+- `deploy.sh` thực hiện: `git pull origin main` → `npm install` → `npm run build` → `pm2 restart blog-frontend` và `blog-backend`.
+
+**Lưu ý:** Nếu VPS đứng sau tường lửa/NAT, đảm bảo port 3001 (hoặc domain API) mở từ internet để GitHub gửi webhook được. Không cần mở cho user cuối nếu bạn dùng domain khác cho frontend.
+
+---
+
 ## Bước 1: Kiểm tra MongoDB
 
 ```bash
@@ -29,6 +176,8 @@ PORT=3001
 MONGODB_URI=mongodb://localhost:27017
 DB_NAME=blog_huy
 NODE_ENV=production
+# Tùy chọn: dùng cho auto-deploy khi push (xem mục "Tự động cập nhật khi push")
+# WEBHOOK_SECRET=your-secret-from-openssl-rand-hex-32
 ```
 
 Lưu file: `Ctrl + O`, `Enter`, `Ctrl + X`
