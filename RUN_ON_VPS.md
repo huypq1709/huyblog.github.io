@@ -311,6 +311,66 @@ curl http://localhost:5173
 - **Frontend**: `http://your-vps-ip:5173`
 - **Backend API**: `http://your-vps-ip:3001/health`
 
+## Đẩy database MongoDB từ máy local lên server (VPS)
+
+Nếu bạn có dữ liệu (posts, bio, social links) trong MongoDB trên **máy local** và muốn đưa lên **MongoDB trên VPS**, làm lần lượt như sau.
+
+### Bước 1: Trên máy local – export database
+
+Đảm bảo MongoDB đang chạy trên máy local, tên DB giống backend (ví dụ `blog_huy`). Mở terminal **trên máy local**:
+
+```bash
+# Export toàn bộ DB blog_huy ra thư mục dump
+mongodump --db=blog_huy --out=./blog_huy_dump
+```
+
+Sau bước này sẽ có thư mục `blog_huy_dump/blog_huy/` chứa các file backup.
+
+### Bước 2: Copy dump lên server
+
+Dùng `scp` (thay `root`, `222.255.119.53`, đường dẫn nếu khác):
+
+```bash
+# Trên máy local
+scp -r ./blog_huy_dump root@222.255.119.53:/root/
+```
+
+Nhập mật khẩu SSH (hoặc dùng key). File sẽ nằm ở `/root/blog_huy_dump` trên VPS.
+
+### Bước 3: Trên server (VPS) – import vào MongoDB
+
+SSH vào VPS rồi chạy:
+
+```bash
+# Import DB (sẽ ghi đè/merge vào DB blog_huy trên server)
+mongorestore --db=blog_huy /root/blog_huy_dump/blog_huy
+```
+
+Nếu muốn **xóa DB cũ trên server rồi mới import** (thay thế hoàn toàn):
+
+```bash
+mongorestore --db=blog_huy --drop /root/blog_huy_dump/blog_huy
+```
+
+`--drop` sẽ xóa collection trước khi restore.
+
+### Bước 4: Restart backend và kiểm tra
+
+```bash
+pm2 restart blog-backend
+# Kiểm tra
+curl -s http://localhost:3001/api/posts | head -c 200
+```
+
+Sau đó mở lại trang web/Admin để xem dữ liệu đã lên đúng chưa.
+
+**Lưu ý:**
+
+- Backend trên VPS đang dùng **MongoDB trên chính VPS** (`MONGODB_URI=mongodb://localhost:27017`, `DB_NAME=blog_huy` trong `.env`). Log "Connected to MongoDB" nghĩa là kết nối tới MongoDB **trên server**, không phải máy bạn.
+- Chỉ cần "đẩy DB lên server" khi bạn có data ở nơi khác (máy local, server cũ); nếu mọi thứ đã chạy trên VPS từ đầu thì data đã nằm trên server rồi.
+
+---
+
 ## Quản lý PM2
 
 ```bash

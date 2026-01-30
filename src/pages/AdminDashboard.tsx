@@ -103,8 +103,14 @@ export function AdminDashboard({
         success('Post created successfully!');
       }
       setView('posts-list');
-    } catch (err: any) {
-      error(err?.message || 'Failed to save post. Please try again.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save post. Please try again.';
+      if (msg.toLowerCase().includes('post not found') || msg.toLowerCase().includes('not found')) {
+        setView('posts-list');
+        error('Bài viết không còn tồn tại trên server (có thể đã xóa hoặc database khác). Đã quay lại danh sách.');
+      } else {
+        error(msg);
+      }
     }
   };
   // Social Link Handlers

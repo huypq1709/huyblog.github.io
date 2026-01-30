@@ -197,8 +197,12 @@ function BlogContent() {
       const { id, ...postData } = updatedPost;
       await postsAPI.update(id, postData);
       await refreshData(); // Refresh data after update
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error updating post:', error);
+      const msg = error instanceof Error ? error.message : '';
+      if (msg.toLowerCase().includes('post not found') || msg.toLowerCase().includes('not found')) {
+        await refreshData(); // Sync list so ghost post disappears
+      }
       throw error;
     }
   };
