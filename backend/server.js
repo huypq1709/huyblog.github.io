@@ -18,6 +18,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 const DB_NAME = process.env.DB_NAME || 'blog_huy';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 // Middleware – webhook needs raw body for signature verification, so register before json()
 app.use(cors());
@@ -105,7 +106,7 @@ app.post('/api/translate', async (req, res) => {
     prompt = `Translate the following Vietnamese text to English. Preserve paragraph breaks (double newlines). Output only the English translation, nothing else.\n\n${trimmed}`;
   }
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -118,11 +119,18 @@ app.post('/api/translate', async (req, res) => {
       const errBody = await response.text();
       console.error('Gemini API error:', response.status, errBody);
       const isRateLimit = response.status === 429;
-      let message = isRateLimit ? 'Too many requests. Try again later.' : 'Translation service error.';
+      let message = isRateLimit ? 'Quota/rate limit exceeded. Try again in 1–2 minutes.' : 'Translation service error.';
       if (response.status === 401 || response.status === 403) {
         message = 'Invalid or missing GEMINI_API_KEY. Check backend .env and https://aistudio.google.com/apikey';
       } else if (response.status >= 500) {
         message = 'Gemini API is temporarily unavailable. Try again later.';
+      } else if (isRateLimit) {
+        try {
+          const errJson = JSON.parse(errBody);
+          const retryMatch = errJson?.error?.message?.match(/retry in ([\d.]+)s/i) || errJson?.error?.details?.find((d) => d.retryDelay)?.retryDelay?.match(/(\d+)/);
+          const sec = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : 60;
+          message = `Đã hết quota/giới hạn dịch (Gemini free tier). Thử lại sau ${sec} giây hoặc vài phút.`;
+        } catch (_) {}
       }
       return res.status(response.status === 429 ? 429 : 502).json({ error: message });
     }

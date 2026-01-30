@@ -180,6 +180,7 @@ NODE_ENV=production
 # WEBHOOK_SECRET=your-secret-from-openssl-rand-hex-32
 # Tùy chọn: dịch Việt -> Anh trong Admin (Gemini API free tier, lấy key tại https://aistudio.google.com/apikey)
 # GEMINI_API_KEY=your-gemini-api-key
+# GEMINI_MODEL=gemini-2.5-flash   (mặc định, stable; có thể đổi: gemini-2.5-flash-lite, gemini-2.0-flash-001)
 ```
 
 Lưu file: `Ctrl + O`, `Enter`, `Ctrl + X`
