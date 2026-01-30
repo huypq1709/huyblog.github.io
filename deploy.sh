@@ -11,8 +11,9 @@ if [ -s "$NVM_DIR/nvm.sh" ]; then
 fi
 echo "[deploy] Node: $(node -v) | npm: $(npm -v)"
 
-echo "[deploy] Pulling from GitHub..."
-git pull origin main
+echo "[deploy] Syncing with GitHub (discard local changes)..."
+git fetch origin main
+git reset --hard origin/main
 
 echo "[deploy] Installing dependencies (if needed)..."
 npm install
