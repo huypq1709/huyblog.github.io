@@ -102,13 +102,13 @@ DB_NAME=blog_huy
 NODE_ENV=production
 
 # Bí mật để GitHub gửi webhook (tự đặt chuỗi bất kỳ, ví dụ dùng: openssl rand -hex 32)
-WEBHOOK_SECRET=your-secret-here-at-least-32-chars
+WEBHOOK_SECRET=openssl rand -hex 32
 ```
 
 Tạo secret an toàn (chạy trên server hoặc máy local):
 
 ```bash
-openssl rand -hex 32
+    openssl rand -hex 32
 ```
 
 Copy kết quả vào `WEBHOOK_SECRET` trong `.env`, sau đó restart backend:
@@ -178,6 +178,8 @@ DB_NAME=blog_huy
 NODE_ENV=production
 # Tùy chọn: dùng cho auto-deploy khi push (xem mục "Tự động cập nhật khi push")
 # WEBHOOK_SECRET=your-secret-from-openssl-rand-hex-32
+# Tùy chọn: dịch Việt -> Anh trong Admin (Gemini API free tier, lấy key tại https://aistudio.google.com/apikey)
+# GEMINI_API_KEY=your-gemini-api-key
 ```
 
 Lưu file: `Ctrl + O`, `Enter`, `Ctrl + X`
@@ -211,6 +213,16 @@ curl http://localhost:3001/health
 ```
 
 Nếu thấy `{"status":"ok","database":"connected",...}`, backend đã chạy thành công!
+
+### Dịch Việt → Anh (Gemini API, free tier)
+
+Trong Admin có nút **"Tạo bản tiếng Anh từ tiếng Việt"** (Bio và Bài viết). Cần cấu hình API key:
+
+1. Lấy key miễn phí: [Google AI Studio](https://aistudio.google.com/apikey) → Create API key.
+2. Thêm vào **backend** `.env`: `GEMINI_API_KEY=your-key`.
+3. Restart backend: `pm2 restart blog-backend`.
+
+Nếu không cấu hình, nút vẫn hiển thị nhưng gọi API sẽ báo lỗi (có thể bỏ qua và tự nhập tiếng Anh).
 
 ## Bước 4: Build Frontend
 

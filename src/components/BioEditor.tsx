@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from './ui/Button';
-import { Save } from 'lucide-react';
+import { Save, Languages } from 'lucide-react';
+import { translateAPI } from '../services/apiService';
 
 type BioTranslations = Record<string, { en: string; vi: string }>;
 
@@ -8,6 +9,8 @@ interface BioEditorProps {
   initialTranslations: BioTranslations;
   onSave: (translations: BioTranslations) => void;
   onCancel: () => void;
+  onTranslateSuccess?: () => void;
+  onTranslateError?: (message: string) => void;
 }
 
 export const BIO_KEYS = ['bio'];
@@ -16,6 +19,8 @@ export function BioEditor({
   initialTranslations,
   onSave,
   onCancel,
+  onTranslateSuccess,
+  onTranslateError,
 }: BioEditorProps) {
   const [activeTab, setActiveTab] = useState<'en' | 'vi'>('en');
   const [bioEn, setBioEn] = useState(
@@ -24,6 +29,26 @@ export function BioEditor({
   const [bioVi, setBioVi] = useState(
     initialTranslations.bio?.vi ?? ''
   );
+  const [translateLoading, setTranslateLoading] = useState(false);
+
+  const handleTranslateViToEn = async () => {
+    const trimmed = bioVi.trim();
+    if (!trimmed) {
+      onTranslateError?.('Hãy nhập nội dung tiếng Việt trước.');
+      return;
+    }
+    setTranslateLoading(true);
+    try {
+      const { translated } = await translateAPI.text(trimmed);
+      setBioEn(translated);
+      setActiveTab('en');
+      onTranslateSuccess?.();
+    } catch (err) {
+      onTranslateError?.(err instanceof Error ? err.message : 'Dịch thất bại.');
+    } finally {
+      setTranslateLoading(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,10 +77,11 @@ export function BioEditor({
 
       <p className="text-sm text-muted-foreground">
         Mỗi ngôn ngữ một ô. Xuống dòng hai lần (để trống một dòng) để tạo đoạn mới. Dùng{' '}
-        <code className="bg-muted px-1 rounded">[chữ hiển thị](url)</code> để thêm link.
+        <code className="bg-muted px-1 rounded">[chữ hiển thị](url)</code> để thêm link. Có thể viết tiếng Việt rồi bấm &quot;Tạo bản tiếng Anh&quot; để dịch tự động (Gemini API).
       </p>
 
-      <div className="flex bg-muted rounded-lg p-1 w-fit">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex bg-muted rounded-lg p-1 w-fit">
         <button
           type="button"
           onClick={() => setActiveTab('en')}
@@ -78,6 +104,17 @@ export function BioEditor({
         >
           Tiếng Việt
         </button>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={handleTranslateViToEn}
+          disabled={translateLoading}
+          className="gap-2"
+        >
+          <Languages className="h-4 w-4" />
+          {translateLoading ? 'Đang dịch...' : 'Tạo bản tiếng Anh từ tiếng Việt'}
+        </Button>
       </div>
 
       {activeTab === 'en' ? (

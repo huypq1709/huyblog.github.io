@@ -295,7 +295,13 @@ export function AdminDashboard({
               </div>}
 
             {(view === 'posts-create' || view === 'posts-edit') && <div className="animate-in slide-in-from-right-4 duration-300">
-                <PostEditor post={editingPost} onSave={handleSavePost} onCancel={handleCancel} />
+                <PostEditor
+                  post={editingPost}
+                  onSave={handleSavePost}
+                  onCancel={handleCancel}
+                  onTranslateSuccess={() => success('Đã tạo bản tiếng Anh.')}
+                  onTranslateError={(msg) => error(msg)}
+                />
               </div>}
 
             {/* Social Links Views */}
@@ -329,6 +335,8 @@ export function AdminDashboard({
                   initialTranslations={initialBioTranslations}
                   onSave={handleSaveBio}
                   onCancel={handleCancel}
+                  onTranslateSuccess={() => success('Đã tạo bản tiếng Anh.')}
+                  onTranslateError={(msg) => error(msg)}
                 />
               </div>
             )}

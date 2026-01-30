@@ -17,6 +17,7 @@ const PORT = process.env.PORT || 3001;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 const DB_NAME = process.env.DB_NAME || 'blog_huy';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 // Middleware – webhook needs raw body for signature verification, so register before json()
 app.use(cors());
@@ -68,6 +69,73 @@ app.post('/api/deploy-webhook', express.raw({ type: 'application/json' }), (req,
 });
 
 app.use(express.json());
+
+// Translate Vietnamese -> English (Gemini API, free tier)
+app.post('/api/translate', async (req, res) => {
+  if (!GEMINI_API_KEY) {
+    return res.status(503).json({
+      error: 'Translation not configured. Set GEMINI_API_KEY in backend .env (get key at https://aistudio.google.com/apikey)',
+    });
+  }
+  const { text, type = 'text', title: titleVi, excerpt: excerptVi, content: contentVi } = req.body || {};
+  let prompt;
+  if (type === 'post') {
+    const t = (typeof titleVi === 'string' ? titleVi : '').trim();
+    const e = (typeof excerptVi === 'string' ? excerptVi : '').trim();
+    const c = (typeof contentVi === 'string' ? contentVi : '').trim();
+    if (!t && !e && !c) {
+      return res.status(400).json({ error: 'Post translation requires at least one of title, excerpt, content' });
+    }
+    prompt = `Translate the following Vietnamese blog post to English. Return ONLY a valid JSON object with exactly these keys: "title", "excerpt", "content". No markdown, no extra text. Use empty string for missing fields.\n\nTitle: ${t}\n\nExcerpt: ${e}\n\nContent: ${c}`;
+  } else {
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'Body must include text (string)' });
+    }
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return res.status(400).json({ error: 'Text cannot be empty' });
+    }
+    prompt = `Translate the following Vietnamese text to English. Preserve paragraph breaks (double newlines). Output only the English translation, nothing else.\n\n${trimmed}`;
+  }
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
+      }),
+    });
+    if (!response.ok) {
+      const errBody = await response.text();
+      console.error('Gemini API error:', response.status, errBody);
+      return res.status(response.status === 429 ? 429 : 502).json({
+        error: response.status === 429 ? 'Too many requests. Try again later.' : 'Translation service error.',
+      });
+    }
+    const data = await response.json();
+    const part = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!part) {
+      return res.status(502).json({ error: 'No translation in response' });
+    }
+    const translated = part.trim();
+    if (type === 'post') {
+      try {
+        const parsed = JSON.parse(translated.replace(/^```json?\s*|\s*```$/g, '').trim());
+        const title = typeof parsed.title === 'string' ? parsed.title : '';
+        const excerpt = typeof parsed.excerpt === 'string' ? parsed.excerpt : '';
+        const content = typeof parsed.content === 'string' ? parsed.content : '';
+        return res.json({ translated: { title, excerpt, content } });
+      } catch (_) {}
+      return res.json({ translated: { title: translated, excerpt: '', content: '' } });
+    }
+    res.json({ translated });
+  } catch (err) {
+    console.error('Translate error:', err);
+    res.status(500).json({ error: err.message || 'Translation failed' });
+  }
+});
 
 // MongoDB connection
 let db;

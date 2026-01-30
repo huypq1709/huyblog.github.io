@@ -1,19 +1,24 @@
 import React, { useState, useRef } from 'react';
 import { BlogPost, BilingualText } from '../types/blog';
 import { Button } from './ui/Button';
-import { Save, Globe, Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Save, Globe, Upload, X, Image as ImageIcon, Languages } from 'lucide-react';
+import { translateAPI } from '../services/apiService';
 interface PostEditorProps {
   post?: BlogPost;
   onSave: (post: Omit<BlogPost, 'id'> & {
     id?: string;
   }) => void;
   onCancel: () => void;
+  onTranslateSuccess?: () => void;
+  onTranslateError?: (message: string) => void;
 }
 const AVAILABLE_CATEGORIES = ['Sách', 'Phim', 'Học tập', 'AI', 'Nhật kí', 'Tài chính'];
 export function PostEditor({
   post,
   onSave,
-  onCancel
+  onCancel,
+  onTranslateSuccess,
+  onTranslateError,
 }: PostEditorProps) {
   const [formData, setFormData] = useState<Omit<BlogPost, 'id'> & {
     id?: string;
@@ -38,7 +43,37 @@ export function PostEditor({
   });
   const [activeTab, setActiveTab] = useState<'en' | 'vi'>('en');
   const [isDragging, setIsDragging] = useState(false);
+  const [translateLoading, setTranslateLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTranslateViToEn = async () => {
+    const { title, excerpt, content } = formData;
+    if (!title.vi?.trim() && !excerpt.vi?.trim() && !content.vi?.trim()) {
+      onTranslateError?.('Hãy nhập ít nhất một trường tiếng Việt (tiêu đề, tóm tắt hoặc nội dung).');
+      return;
+    }
+    setTranslateLoading(true);
+    try {
+      const { translated } = await translateAPI.post({
+        title: title.vi || '',
+        excerpt: excerpt.vi || '',
+        content: content.vi || '',
+      });
+      setFormData((prev) => ({
+        ...prev,
+        title: { ...prev.title, en: translated.title },
+        excerpt: { ...prev.excerpt, en: translated.excerpt },
+        content: { ...prev.content, en: translated.content },
+      }));
+      setActiveTab('en');
+      onTranslateSuccess?.();
+    } catch (err) {
+      onTranslateError?.(err instanceof Error ? err.message : 'Dịch thất bại.');
+    } finally {
+      setTranslateLoading(false);
+    }
+  };
+
   const handleChange = (field: keyof BlogPost, value: string | number | BilingualText | string[], lang?: 'en' | 'vi') => {
     if (lang && typeof value === 'string') {
       // Handle bilingual fields
@@ -198,17 +233,34 @@ export function PostEditor({
 
         {/* Bilingual Content */}
         <div className="space-y-4 md:col-span-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold">Content</h3>
-            <div className="flex bg-muted rounded-lg p-1">
-              <button type="button" onClick={() => setActiveTab('en')} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${activeTab === 'en' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                English
-              </button>
-              <button type="button" onClick={() => setActiveTab('vi')} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${activeTab === 'vi' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                Vietnamese
-              </button>
+            <div className="flex items-center gap-2">
+              <div className="flex bg-muted rounded-lg p-1">
+                <button type="button" onClick={() => setActiveTab('en')} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${activeTab === 'en' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                  English
+                </button>
+                <button type="button" onClick={() => setActiveTab('vi')} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${activeTab === 'vi' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                  Vietnamese
+                </button>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleTranslateViToEn}
+                disabled={translateLoading}
+                className="gap-2"
+                title="Dịch tiêu đề, tóm tắt và nội dung từ tiếng Việt sang tiếng Anh (Gemini API)"
+              >
+                <Languages className="h-4 w-4" />
+                {translateLoading ? 'Đang dịch...' : 'Tạo bản tiếng Anh từ tiếng Việt'}
+              </Button>
             </div>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Có thể chỉ cần nhập <strong>tiếng Việt</strong> (tiêu đề, tóm tắt, nội dung), rồi bấm &quot;Tạo bản tiếng Anh từ tiếng Việt&quot; để tự dịch sang tiếng Anh (Gemini API).
+          </p>
 
           <div className="grid gap-6 p-6 border border-border rounded-lg bg-muted/5">
             <div className="space-y-2">

@@ -67,3 +67,17 @@ export const bioAPI = {
     }),
 };
 
+// Translate Vietnamese -> English (Gemini API via backend)
+export const translateAPI = {
+  text: async (text: string): Promise<{ translated: string }> =>
+    apiRequest<{ translated: string }>('/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  post: async (vi: { title: string; excerpt: string; content: string }): Promise<{ translated: { title: string; excerpt: string; content: string } }> =>
+    apiRequest<{ translated: { title: string; excerpt: string; content: string } }>('/translate', {
+      method: 'POST',
+      body: JSON.stringify({ type: 'post', title: vi.title, excerpt: vi.excerpt, content: vi.content }),
+    }),
+};
+
