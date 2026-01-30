@@ -263,11 +263,11 @@ app.put('/api/posts/:id', async (req, res) => {
       { returnDocument: 'after' }
     );
     
-    if (!result.value) {
+    if (!result) {
       return res.status(404).json({ error: 'Post not found' });
     }
     
-    const { _id, ...updatedPost } = result.value;
+    const { _id, ...updatedPost } = result;
     res.json({ id: _id.toString(), ...updatedPost });
   } catch (error) {
     console.error('Error updating post:', error);
@@ -382,11 +382,11 @@ app.put('/api/social-links/:id', async (req, res) => {
       { returnDocument: 'after' }
     );
     
-    if (!result.value) {
+    if (!result) {
       return res.status(404).json({ error: 'Social link not found' });
     }
     
-    const { _id, ...updatedLink } = result.value;
+    const { _id, ...updatedLink } = result;
     res.json({ id: _id.toString(), ...updatedLink });
   } catch (error) {
     console.error('Error updating social link:', error);
