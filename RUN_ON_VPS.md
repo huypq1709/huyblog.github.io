@@ -224,6 +224,19 @@ Trong Admin có nút **"Tạo bản tiếng Anh từ tiếng Việt"** (Bio và 
 
 Nếu không cấu hình, nút vẫn hiển thị nhưng gọi API sẽ báo lỗi (có thể bỏ qua và tự nhập tiếng Anh).
 
+**Nếu bị 502 Bad Gateway khi bấm "Tạo bản tiếng Anh":**
+
+- Thường do **GEMINI_API_KEY** chưa set trên server hoặc key sai/hết hạn. Kiểm tra:
+  ```bash
+  cat /opt/blog-huy/backend/.env | grep GEMINI
+  ```
+  Thêm/sửa `GEMINI_API_KEY=...` (lấy key mới tại [Google AI Studio](https://aistudio.google.com/apikey)), rồi `pm2 restart blog-backend`.
+- Xem log backend để biết lỗi chi tiết từ Gemini:
+  ```bash
+  pm2 logs blog-backend
+  ```
+  (Tìm dòng "Gemini API error" – 401/403 = key sai, 429 = vượt giới hạn, thử lại sau.)
+
 ## Bước 4: Build Frontend
 
 ```bash
@@ -329,17 +342,53 @@ mongosh --eval "db.version()"
 cat /opt/blog-huy/backend/.env
 ```
 
-### Frontend không build được
+### Frontend không build được / Deploy webhook báo "Deploy failed" (EBADENGINE, Node >= 20)
+
+Một số package (Firebase, v.v.) yêu cầu **Node.js >= 20**. Trên server đang là Node v18 thì `npm install` hoặc `npm run build` có thể fail.
+
+**Kiểm tra phiên bản Node trên server:**
 
 ```bash
-# Kiểm tra Node version
 node --version
-
-# Xóa và cài lại
-rm -rf node_modules package-lock.json
-npm install
-npm run build
 ```
+
+Nếu hiển thị `v18.x.x`, cần nâng lên Node 20 trở lên.
+
+**Cách 1 – Dùng nvm (khuyến nghị):**
+
+```bash
+# Cài nvm (nếu chưa có)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.bashrc   # hoặc source ~/.profile
+
+# Cài Node 20 LTS và dùng mặc định
+nvm install 20
+nvm use 20
+nvm alias default 20
+
+# Kiểm tra
+node --version   # phải là v20.x.x
+npm --version
+```
+
+Sau đó chạy lại deploy (hoặc push để webhook chạy):
+
+```bash
+cd /opt/blog-huy
+bash deploy.sh
+```
+
+**Cách 2 – NodeSource (Ubuntu/Debian):**
+
+```bash
+# Node 20.x
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+node --version
+```
+
+Sau khi nâng Node lên 20+, chạy lại `bash deploy.sh` hoặc bấm "Redeliver" webhook trên GitHub.
 
 ### Port đã được sử dụng
 

@@ -105,7 +105,7 @@ app.post('/api/translate', async (req, res) => {
     prompt = `Translate the following Vietnamese text to English. Preserve paragraph breaks (double newlines). Output only the English translation, nothing else.\n\n${trimmed}`;
   }
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -117,9 +117,14 @@ app.post('/api/translate', async (req, res) => {
     if (!response.ok) {
       const errBody = await response.text();
       console.error('Gemini API error:', response.status, errBody);
-      return res.status(response.status === 429 ? 429 : 502).json({
-        error: response.status === 429 ? 'Too many requests. Try again later.' : 'Translation service error.',
-      });
+      const isRateLimit = response.status === 429;
+      let message = isRateLimit ? 'Too many requests. Try again later.' : 'Translation service error.';
+      if (response.status === 401 || response.status === 403) {
+        message = 'Invalid or missing GEMINI_API_KEY. Check backend .env and https://aistudio.google.com/apikey';
+      } else if (response.status >= 500) {
+        message = 'Gemini API is temporarily unavailable. Try again later.';
+      }
+      return res.status(response.status === 429 ? 429 : 502).json({ error: message });
     }
     const data = await response.json();
     const part = data.candidates?.[0]?.content?.parts?.[0]?.text;
