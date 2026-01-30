@@ -1,4 +1,4 @@
-import { useState, createContext, useContext, ReactNode } from 'react';
+import { useState, createContext, useContext, ReactNode, useEffect } from 'react';
 import { Language, LanguageContextType } from '../types/blog';
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 const initialTranslations: Record<string, {
@@ -188,12 +188,22 @@ const initialTranslations: Record<string, {
   }
 };
 export function LanguageProvider({
-  children
+  children,
+  bioFromApi,
 }: {
   children: ReactNode;
+  bioFromApi?: Record<string, { en: string; vi: string }>;
 }) {
   const [language, setLanguage] = useState<Language>('vi'); // Default to Vietnamese
   const [translations, setTranslations] = useState(initialTranslations);
+
+  // Merge bio from API into translations when loaded
+  useEffect(() => {
+    if (bioFromApi && Object.keys(bioFromApi).length > 0) {
+      setTranslations((prev) => ({ ...prev, ...bioFromApi }));
+    }
+  }, [bioFromApi]);
+
   const t = (key: string): string => {
     const translation = translations[key];
     if (!translation) return key;

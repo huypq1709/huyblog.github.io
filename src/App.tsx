@@ -10,7 +10,7 @@ import { BlogPost } from './components/BlogPost';
 import { CategoryPage } from './components/CategoryPage';
 import { BlogPost as BlogPostType, SocialLink } from './types/blog';
 import { Search, Filter, Calendar } from 'lucide-react';
-import { postsAPI, socialLinksAPI } from './services/apiService';
+import { postsAPI, socialLinksAPI, bioAPI } from './services/apiService';
 type ViewState = 'home' | 'blog' | 'post' | 'admin' | 'books' | 'movies' | 'study' | 'ai' | 'diary' | 'finance';
 function BlogContent() {
   const [view, setView] = useState<ViewState>('home');
@@ -369,9 +369,23 @@ function BlogContent() {
     </div>;
 }
 export function App() {
-  return <AuthProvider>
-      <LanguageProvider>
+  const [bioFromApi, setBioFromApi] = useState<Record<string, { en: string; vi: string }> | null>(null);
+  useEffect(() => {
+    bioAPI
+      .get()
+      .then((r) => {
+        if (r.translations && Object.keys(r.translations).length > 0) {
+          setBioFromApi(r.translations);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return (
+    <AuthProvider>
+      <LanguageProvider bioFromApi={bioFromApi ?? undefined}>
         <BlogContent />
       </LanguageProvider>
-    </AuthProvider>;
+    </AuthProvider>
+  );
 }

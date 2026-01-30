@@ -54,6 +54,9 @@ const BIO_SECTIONS = [{
   keys: ['bio8_1', 'bio8_link', 'bio8_2'],
   description: 'Closing statement and contact link.'
 }];
+
+export const BIO_KEYS = BIO_SECTIONS.flatMap((s) => s.keys);
+
 export function BioEditor({
   initialTranslations,
   onSave,

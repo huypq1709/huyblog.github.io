@@ -273,6 +273,38 @@ app.delete('/api/social-links/:id', async (req, res) => {
   }
 });
 
+// Bio (homepage intro) – single document in collection "bio"
+const BIO_DOC_ID = 'main';
+
+app.get('/api/bio', async (req, res) => {
+  try {
+    const doc = await db.collection('bio').findOne({ _id: BIO_DOC_ID });
+    const translations = doc && doc.translations ? doc.translations : {};
+    res.json({ translations });
+  } catch (error) {
+    console.error('Error fetching bio:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+app.put('/api/bio', async (req, res) => {
+  try {
+    const { translations } = req.body;
+    if (typeof translations !== 'object' || translations === null) {
+      return res.status(400).json({ error: 'Body must include translations object' });
+    }
+    await db.collection('bio').updateOne(
+      { _id: BIO_DOC_ID },
+      { $set: { translations, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    res.json({ translations });
+  } catch (error) {
+    console.error('Error updating bio:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   const dbStatus = db ? 'connected' : 'disconnected';

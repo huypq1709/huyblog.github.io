@@ -54,3 +54,16 @@ export const socialLinksAPI = {
   }),
 };
 
+// Bio (homepage intro) API – translations keyed by bio1, bio2, ...
+export type BioTranslations = Record<string, { en: string; vi: string }>;
+
+export const bioAPI = {
+  get: async (): Promise<{ translations: BioTranslations }> =>
+    apiRequest<{ translations: BioTranslations }>('/bio'),
+  update: async (translations: BioTranslations): Promise<{ translations: BioTranslations }> =>
+    apiRequest<{ translations: BioTranslations }>('/bio', {
+      method: 'PUT',
+      body: JSON.stringify({ translations }),
+    }),
+};
+

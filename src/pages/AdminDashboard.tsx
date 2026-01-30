@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { BlogPost, SocialLink } from '../types/blog';
 import { PostList } from '../components/PostList';
 import { PostEditor } from '../components/PostEditor';
 import { SocialLinkList } from '../components/SocialLinkList';
 import { SocialLinkEditor } from '../components/SocialLinkEditor';
+import { BioEditor, BIO_KEYS } from '../components/BioEditor';
 import { Button } from '../components/ui/Button';
 import { ConfirmationDialog } from '../components/ui/ConfirmationDialog';
 import { ToastContainer } from '../components/ui/Toast';
 import { useToast } from '../hooks/useToast';
-import { Plus, LayoutDashboard, FileText, Settings, Link as LinkIcon, Search, Filter, Calendar } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
+import { bioAPI } from '../services/apiService';
+import { Plus, LayoutDashboard, FileText, Settings, Link as LinkIcon, Search, Filter, Calendar, User } from 'lucide-react';
 interface AdminDashboardProps {
   posts: BlogPost[];
   socialLinks: SocialLink[];
@@ -19,7 +22,7 @@ interface AdminDashboardProps {
   onUpdateSocialLink: (link: SocialLink) => void;
   onDeleteSocialLink: (linkId: string) => void;
 }
-type DashboardView = 'posts-list' | 'posts-create' | 'posts-edit' | 'social-list' | 'social-create' | 'social-edit';
+type DashboardView = 'posts-list' | 'posts-create' | 'posts-edit' | 'social-list' | 'social-create' | 'social-edit' | 'bio-edit';
 export function AdminDashboard({
   posts,
   socialLinks,
@@ -33,9 +36,21 @@ export function AdminDashboard({
   const [view, setView] = useState<DashboardView>('posts-list');
   const [editingPost, setEditingPost] = useState<BlogPost | undefined>(undefined);
   const [editingLink, setEditingLink] = useState<SocialLink | undefined>(undefined);
-  
+
+  const { translations, updateTranslations } = useLanguage();
+
   // Toast notifications
   const { toasts, success, error, removeToast } = useToast();
+
+  // Bio: only keys used on homepage intro
+  const initialBioTranslations = useMemo(
+    () =>
+      BIO_KEYS.reduce<Record<string, { en: string; vi: string }>>(
+        (acc, k) => ({ ...acc, [k]: translations[k] || { en: '', vi: '' } }),
+        {}
+      ),
+    [translations]
+  );
   
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -167,6 +182,19 @@ export function AdminDashboard({
     } else if (view.startsWith('social')) {
       setView('social-list');
       setEditingLink(undefined);
+    } else if (view === 'bio-edit') {
+      setView('posts-list');
+    }
+  };
+
+  const handleSaveBio = async (newTranslations: Record<string, { en: string; vi: string }>) => {
+    try {
+      await bioAPI.update(newTranslations);
+      updateTranslations(newTranslations);
+      success('Bio updated successfully!');
+      setView('posts-list');
+    } catch (err: unknown) {
+      error(err instanceof Error ? err.message : 'Failed to save bio. Please try again.');
     }
   };
   return <div className="min-h-screen bg-muted/10">
@@ -188,6 +216,11 @@ export function AdminDashboard({
               <button onClick={() => setView('social-list')} className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${view.startsWith('social') ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
                 <LinkIcon className="h-4 w-4" />
                 Social Links
+              </button>
+
+              <button onClick={() => setView('bio-edit')} className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${view === 'bio-edit' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                <User className="h-4 w-4" />
+                Giới thiệu (Bio)
               </button>
 
               <button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
@@ -288,6 +321,17 @@ export function AdminDashboard({
             {(view === 'social-create' || view === 'social-edit') && <div className="animate-in slide-in-from-right-4 duration-300">
                 <SocialLinkEditor socialLink={editingLink} onSave={handleSaveLink} onCancel={handleCancel} />
               </div>}
+
+            {/* Bio (homepage intro) */}
+            {view === 'bio-edit' && (
+              <div className="animate-in slide-in-from-right-4 duration-300">
+                <BioEditor
+                  initialTranslations={initialBioTranslations}
+                  onSave={handleSaveBio}
+                  onCancel={handleCancel}
+                />
+              </div>
+            )}
 
           </main>
         </div>
